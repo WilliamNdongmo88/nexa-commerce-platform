@@ -1,0 +1,26 @@
+package com.microservices.config.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.web.SecurityFilterChain;
+
+@Configuration
+public class SecurityConfig {
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http
+                .csrf(AbstractHttpConfigurer::disable)
+                .authorizeHttpRequests(auth -> auth
+                        // Health & info accessibles sans auth (pour K8s probes)
+                        .requestMatchers("/actuator/health/**", "/actuator/info").permitAll()
+                        // Le reste nécessite une authentification Basic
+                        .anyRequest().authenticated()
+                )
+                .httpBasic(basic -> {});
+
+        return http.build();
+    }
+}

@@ -1,0 +1,3 @@
+# Config spécifique à Eureka Server
+# Pour l'instant, Eureka Server a sa config locale.
+# Plus tard, on pourra migrer sa config ici.

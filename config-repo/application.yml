@@ -1,0 +1,91 @@
+# ============================================================
+# Configuration COMMUNE à tous les microservices
+# Ce fichier est chargé par TOUS les services qui interrogent
+# le Config Server.
+# ============================================================
+
+spring:
+  # Profil par défaut (surchargé par env)
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+
+  # ============================================
+  # Kafka (commun à tous les services qui en ont besoin)
+  # ============================================
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      retries: 3
+    consumer:
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      auto-offset-reset: earliest
+      properties:
+        spring.json.trusted.packages: "com.microservices.*"
+    listener:
+      ack-mode: manual_immediate
+
+  # ============================================
+  # JPA / Hibernate
+  # ============================================
+  jpa:
+    hibernate:
+      ddl-auto: validate   # Flyway gère les migrations
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        jdbc:
+          time_zone: UTC
+
+  # ============================================
+  # Flyway
+  # ============================================
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+
+# ============================================
+# Eureka (commun à tous)
+# ============================================
+eureka:
+  client:
+    service-url:
+      defaultZone: http://${EUREKA_USER:admin}:${EUREKA_PASSWORD:admin123}@${EUREKA_HOST:localhost}:8761/eureka/
+    registry-fetch-interval-seconds: 10
+  instance:
+    prefer-ip-address: true
+    lease-renewal-interval-in-seconds: 10
+    lease-expiration-duration-in-seconds: 30
+
+# ============================================
+# Actuator (commun à tous)
+# ============================================
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,refresh
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+# ============================================
+# Logging (commun à tous)
+# ============================================
+logging:
+  level:
+    root: INFO
+    com.microservices: DEBUG
+    org.springframework.web: INFO
+    org.hibernate.SQL: DEBUG

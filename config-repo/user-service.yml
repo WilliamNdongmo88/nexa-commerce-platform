@@ -1,0 +1,77 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: user-service
+
+  # ============================================
+  # PostgreSQL
+  # ============================================
+  datasource:
+    url: ${USER_DB_URL:jdbc:postgresql://localhost:5433/user_db}
+    username: ${USER_DB_USER:user_user}
+    password: ${USER_DB_PASSWORD:user_pass}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+
+  # ============================================
+  # JPA
+  # ============================================
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        jdbc:
+          time_zone: UTC
+    open-in-view: false
+
+  # ============================================
+  # Flyway
+  # ============================================
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+
+  # ============================================
+  # Kafka (consumer)
+  # ============================================
+  kafka:
+    consumer:
+      group-id: user-service-cg
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+
+# ============================================
+# Topics Kafka (centralisation)
+# ============================================
+app:
+  kafka:
+    enabled: ${KAFKA_ENABLED:false}
+    topics:
+      user-registered: auth.user.registered
+
+# ============================================
+# Swagger
+# ============================================
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+# ============================================
+# Logs
+# ============================================
+logging:
+  level:
+    com.microservices.user: DEBUG
+    org.apache.kafka: WARN
+    org.springframework.kafka: INFO

@@ -1,0 +1,64 @@
+server:
+  port: 8888
+
+spring:
+  application:
+    name: config-server
+
+  # ============================================
+  # Backend Git local
+  # ============================================
+  profiles:
+    active: native   # ← "native" = lecture depuis le filesystem, pas de git clone
+
+  cloud:
+    config:
+      server:
+        native:
+          # Chemin vers le dossier config-repo (à la racine du projet)
+          # Relatif au répertoire où le Config Server est lancé
+          search-locations: file:./config-repo,file:../config-repo,file:../../config-repo
+          # ↑ Plusieurs chemins pour absorber les variations selon d'où on lance
+        # Backend git (utilisé plus tard en CI/CD) :
+        # git:
+        #   uri: https://github.com/ton-org/microservices-config
+        #   default-label: main
+        #   clone-on-start: true
+        #   search-paths: '{application}'
+
+  # ============================================
+  # Sécurité : protéger l'accès aux configs
+  # ============================================
+  security:
+    user:
+      name: ${CONFIG_SERVER_USER:config}
+      password: ${CONFIG_SERVER_PASSWORD:config123}
+
+# ============================================
+# Eureka : le Config Server s'enregistre
+# ============================================
+eureka:
+  client:
+    service-url:
+      defaultZone: http://${EUREKA_USER:admin}:${EUREKA_PASSWORD:admin123}@${EUREKA_HOST:localhost}:8761/eureka/
+  instance:
+    prefer-ip-address: true
+    lease-renewal-interval-in-seconds: 10
+    lease-expiration-duration-in-seconds: 30
+
+# ============================================
+# Actuator
+# ============================================
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,refresh
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    org.springframework.cloud.config: INFO
+    com.netflix.discovery: WARN

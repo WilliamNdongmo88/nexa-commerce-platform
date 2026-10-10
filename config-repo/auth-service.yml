@@ -1,0 +1,69 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: auth-service
+
+  # ============================================
+  # PostgreSQL
+  # ============================================
+  datasource:
+    url: ${AUTH_DB_URL:jdbc:postgresql://localhost:5432/auth_db}
+    username: ${AUTH_DB_USER:auth_user}
+    password: ${AUTH_DB_PASSWORD:auth_pass}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+
+  # ============================================
+  # JPA
+  # ============================================
+  jpa:
+    hibernate:
+      ddl-auto: validate    # Flyway gère les migrations
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        jdbc:
+          time_zone: UTC
+    open-in-view: false
+
+  # ============================================
+  # Flyway
+  # ============================================
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+
+# ============================================
+# JWT (spécifique à auth-service)
+# ============================================
+jwt:
+  # En dev, secret partagé avec la Gateway (HS256)
+  secret: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
+  issuer: auth-service
+  audience: microservices-platform
+  access-token-ttl: 900          # 15 minutes (secondes)
+  refresh-token-ttl: 604800      # 7 jours (secondes)
+
+# ============================================
+# Swagger
+# ============================================
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+# ============================================
+# Logs
+# ============================================
+logging:
+  level:
+    com.microservices.auth: DEBUG
+    org.springframework.security: INFO

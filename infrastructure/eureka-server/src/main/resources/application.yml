@@ -1,0 +1,47 @@
+server:
+  port: 8761
+
+spring:
+  application:
+    name: eureka-server
+
+  # Sécurité : protéger le dashboard et l'API Eureka
+  security:
+    user:
+      name: ${EUREKA_USER:admin}
+      password: ${EUREKA_PASSWORD:admin123}
+
+eureka:
+  instance:
+    hostname: ${EUREKA_HOSTNAME:localhost}
+    # En prod : préférer l'IP (utile en K8s)
+    prefer-ip-address: false
+  client:
+    # Le serveur Eureka ne s'enregistre PAS dans lui-même en dev mono-nœud
+    register-with-eureka: false
+    fetch-registry: false
+    service-url:
+      defaultZone: http://${spring.security.user.name}:${spring.security.user.password}@${eureka.instance.hostname}:${server.port}/eureka/
+  server:
+    # Désactive le self-preservation en dev (sinon warnings si peu d'instances)
+    # En prod : laisser à true (évite d'évincer des instances à tort lors de pics réseau)
+    enable-self-preservation: false
+    eviction-interval-timer-in-ms: 5000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  health:
+    # Désactive la vérification Eureka dans le health (évite boucle)
+    eureka:
+      enabled: false
+
+logging:
+  level:
+    com.netflix.eureka: INFO
+    com.netflix.discovery: INFO

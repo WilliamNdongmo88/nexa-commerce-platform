@@ -1,0 +1,6 @@
+spring:
+  application:
+    name: auth-service
+
+  config:
+    import: optional:configserver:http://${CONFIG_SERVER_USER:config}:${CONFIG_SERVER_PASSWORD:config123}@${CONFIG_SERVER_HOST:localhost}:8888

@@ -1,0 +1,15 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+
+  # ============================================
+  # Connexion au Config Server
+  #
+  #💡 Le optional: évite un crash si le Config Server n'est pas disponible
+  #au tout premier démarrage. En prod, on retirera optional:.
+  # ============================================
+  config:
+    import: optional:configserver:http://${CONFIG_SERVER_USER:config}:${CONFIG_SERVER_PASSWORD:config123}@${CONFIG_SERVER_HOST:localhost}:8888
