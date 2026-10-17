@@ -1,0 +1,57 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: product-service
+
+  # ============================================
+  # PostgreSQL
+  # ============================================
+  datasource:
+    url: ${PRODUCT_DB_URL:jdbc:postgresql://localhost:5444/product_db}
+    username: ${PRODUCT_DB_USER:product_user}
+    password: ${PRODUCT_DB_PASSWORD:product_pass}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+
+  # ============================================
+  # JPA
+  # ============================================
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        jdbc:
+          time_zone: UTC
+    open-in-view: false
+
+  # ============================================
+  # Flyway
+  # ============================================
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+
+# ============================================
+# Swagger
+# ============================================
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+# ============================================
+# Logs
+# ============================================
+logging:
+  level:
+    com.microservices.product: DEBUG

@@ -10,38 +10,40 @@ import reactor.core.publisher.Mono;
 
 import java.util.UUID;
 
- /**
- * Utile pour le debug et pour plus tard le tracing distribué.
- */
-
 @Slf4j
 @Component
 public class RequestLoggingFilter implements GlobalFilter, Ordered {
 
+    private static final String TRACE_ID_HEADER = "X-Trace-Id";
+    private static final String TRACE_ID_ATTR = "traceId";
+
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
-        String traceId = exchange.getRequest().getHeaders().getFirst("X-Trace-Id");
-        if (traceId == null) {
+        // 1. Récupérer ou générer le traceId
+        String traceId = exchange.getRequest().getHeaders().getFirst(TRACE_ID_HEADER);
+        if (traceId == null || traceId.isBlank()) {
             traceId = UUID.randomUUID().toString();
         }
 
-        // Injecte le traceId dans la requête ET la réponse
-        String finalTraceId = traceId;
-        exchange.getResponse().getHeaders().add("X-Trace-Id", finalTraceId);
+        // 2. Stocker dans les attributs de l'échange (accessible par les autres filtres)
+        exchange.getAttributes().put(TRACE_ID_ATTR, traceId);
 
-        var mutatedRequest = exchange.getRequest().mutate()
-                .header("X-Trace-Id", finalTraceId)
-                .build();
+        // 3. Ajouter le traceId aux headers de RÉPONSE (pas de mutation de requête !)
+        exchange.getResponse().getHeaders().add(TRACE_ID_HEADER, traceId);
 
+        // 4. Logger la requête
         long start = System.currentTimeMillis();
         String method = exchange.getRequest().getMethod().name();
         String path = exchange.getRequest().getPath().value();
+        String finalTraceId = traceId;
 
-        return chain.filter(exchange.mutate().request(mutatedRequest).build())
+        return chain.filter(exchange)
                 .doFinally(signal -> {
                     long duration = System.currentTimeMillis() - start;
                     log.info("[{}] {} {} → {} ({} ms)",
-                            finalTraceId, method, path,
+                            finalTraceId,
+                            method,
+                            path,
                             exchange.getResponse().getStatusCode(),
                             duration);
                 });
@@ -49,6 +51,6 @@ public class RequestLoggingFilter implements GlobalFilter, Ordered {
 
     @Override
     public int getOrder() {
-        return -200;   // Avant tout
+        return -200;   // Avant tout (mais pas critique ici)
     }
 }

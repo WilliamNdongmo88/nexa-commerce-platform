@@ -10,11 +10,13 @@ import org.springframework.core.Ordered;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
+import org.springframework.http.server.reactive.ServerHttpRequestDecorator;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
+import java.util.UUID;
 
 @Slf4j
 @Component
@@ -22,7 +24,6 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
 
     private final JwtService jwtService;
 
-    // Endpoints publics (pas de validation JWT)
     private static final List<String> PUBLIC_PATHS = List.of(
             "/api/v1/auth/register",
             "/api/v1/auth/login",
@@ -32,7 +33,15 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
     );
 
     private static final List<String> PUBLIC_GET_PREFIXES = List.of(
-            "/api/v1/products"   // Lecture catalogue publique
+            "/api/v1/products"
+    );
+
+    private static final List<String> ADMIN_ONLY_PREFIXES = List.of(
+            "/api/v1/products"
+    );
+
+    private static final List<String> ADMIN_ONLY_METHODS = List.of(
+            "POST", "PUT", "DELETE", "PATCH"
     );
 
     public JwtAuthenticationFilter(JwtService jwtService) {
@@ -54,7 +63,7 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
         // 2. Récupérer le header Authorization
         String authHeader = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            log.warn("Missing or invalid Authorization header on {}", path);
+            log.warn("Missing or invalid Authorization header on {} {}", method, path);
             return unauthorized(exchange, "Missing Bearer token");
         }
 
@@ -68,16 +77,33 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
                 return unauthorized(exchange, "Token expired");
             }
 
-            // 4. Injecter les headers pour les services en aval
-            ServerHttpRequest mutatedRequest = request.mutate()
-                    .header("X-User-Id", jwtService.extractUserId(claims))
-                    .header("X-User-Email", nullSafe(jwtService.extractEmail(claims)))
-                    .header("X-User-Roles", String.join(",", jwtService.extractRoles(claims)))
-                    .build();
+            List<String> roles = jwtService.extractRoles(claims);
+            String userId = jwtService.extractUserId(claims);
 
-            log.debug("JWT valid, user={}, roles={}",
-                    jwtService.extractUserId(claims),
-                    jwtService.extractRoles(claims));
+            // 4. Vérifier les rôles admin si nécessaire
+            if (requiresAdmin(path, method) && !roles.contains("ROLE_ADMIN")) {
+                log.warn("Forbidden: user {} lacks ROLE_ADMIN on {} {}", userId, method, path);
+                return forbidden(exchange, "Insufficient privileges");
+            }
+
+            // 5. Injecter les headers via un Decorator (évite ReadOnlyHttpHeaders)
+            String traceId = (String) exchange.getAttributes()
+                    .getOrDefault("traceId", UUID.randomUUID().toString());
+
+            ServerHttpRequest mutatedRequest = new ServerHttpRequestDecorator(request) {
+                @Override
+                public HttpHeaders getHeaders() {
+                    HttpHeaders headers = new HttpHeaders();
+                    headers.putAll(super.getHeaders());
+                    headers.add("X-User-Id", userId);
+                    headers.add("X-User-Email", nullSafe(jwtService.extractEmail(claims)));
+                    headers.add("X-User-Roles", String.join(",", roles));
+                    headers.add("X-Trace-Id", traceId);
+                    return headers;
+                }
+            };
+
+            log.debug("JWT valid, user={}, roles={}", userId, roles);
 
             return chain.filter(exchange.mutate().request(mutatedRequest).build());
 
@@ -97,6 +123,11 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
         return false;
     }
 
+    private boolean requiresAdmin(String path, String method) {
+        return ADMIN_ONLY_METHODS.contains(method)
+                && ADMIN_ONLY_PREFIXES.stream().anyMatch(path::startsWith);
+    }
+
     private String nullSafe(String value) {
         return value != null ? value : "";
     }
@@ -107,8 +138,14 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
         return exchange.getResponse().setComplete();
     }
 
+    private Mono<Void> forbidden(ServerWebExchange exchange, String reason) {
+        exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+        exchange.getResponse().getHeaders().add("X-Auth-Error", reason);
+        return exchange.getResponse().setComplete();
+    }
+
     @Override
     public int getOrder() {
-        return -100;   // Avant les filtres de routage
+        return -100;
     }
 }

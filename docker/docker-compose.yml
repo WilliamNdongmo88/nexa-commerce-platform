@@ -1,2 +1,206 @@
 services:
-  
+
+  # ============================================================
+  # BASES DE DONNÉES POSTGRESQL (une par microservice)
+  # ============================================================
+
+  postgres-auth:
+    image: postgres:16-alpine
+    container_name: postgres-auth
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: auth_db
+      POSTGRES_USER: auth_user
+      POSTGRES_PASSWORD: auth_pass
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5442:5432"
+    volumes:
+      - postgres-auth-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U auth_user -d auth_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - nexa-commerce-platform-net
+
+  postgres-user:
+    image: postgres:16-alpine
+    container_name: postgres-user
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: user_db
+      POSTGRES_USER: user_user
+      POSTGRES_PASSWORD: user_pass
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5443:5432"
+    volumes:
+      - postgres-user-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user_user -d user_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - nexa-commerce-platform-net
+
+  postgres-product:
+    image: postgres:16-alpine
+    container_name: postgres-product
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: product_db
+      POSTGRES_USER: product_user
+      POSTGRES_PASSWORD: product_pass
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5444:5432"
+    volumes:
+      - postgres-product-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U product_user -d product_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - nexa-commerce-platform-net
+
+  postgres-inventory:
+    image: postgres:16-alpine
+    container_name: postgres-inventory
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: inventory_db
+      POSTGRES_USER: inventory_user
+      POSTGRES_PASSWORD: inventory_pass
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5445:5432"
+    volumes:
+      - postgres-inventory-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U inventory_user -d inventory_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - nexa-commerce-platform-net
+
+  postgres-order:
+    image: postgres:16-alpine
+    container_name: postgres-order
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: order_db
+      POSTGRES_USER: order_user
+      POSTGRES_PASSWORD: order_pass
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5446:5432"
+    volumes:
+      - postgres-order-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U order_user -d order_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - nexa-commerce-platform-net
+
+  postgres-payment:
+    image: postgres:16-alpine
+    container_name: postgres-payment
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: payment_db
+      POSTGRES_USER: payment_user
+      POSTGRES_PASSWORD: payment_pass
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5447:5432"
+    volumes:
+      - postgres-payment-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U payment_user -d payment_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - nexa-commerce-platform-net
+
+  postgres-notification:
+    image: postgres:16-alpine
+    container_name: postgres-notification
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: notification_db
+      POSTGRES_USER: notification_user
+      POSTGRES_PASSWORD: notification_pass
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5448:5432"
+    volumes:
+      - postgres-notification-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U notification_user -d notification_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - nexa-commerce-platform-net
+
+  # ============================================================
+  # ADMINER — Interface web pour gérer toutes les BDD
+  # ============================================================
+
+  adminer:
+    image: adminer:latest
+    container_name: adminer
+    restart: unless-stopped
+    ports:
+      - "8090:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres-auth
+      ADMINER_DESIGN: dracula     # Thème sombre (optionnel : pepa-linha, hydra, etc.)
+    depends_on:
+      - postgres-auth
+      - postgres-user
+      - postgres-product
+      - postgres-inventory
+      - postgres-order
+      - postgres-payment
+      - postgres-notification
+    networks:
+      - nexa-commerce-platform-net
+
+# ============================================================
+# RÉSEAU PARTAGÉ (pour que les services Spring puissent
+# communiquer plus tard avec ces conteneurs via Docker)
+# ============================================================
+
+networks:
+  nexa-commerce-platform-net:
+    name: nexa-commerce-platform-net
+    driver: bridge
+
+# ============================================================
+# VOLUMES PERSISTANTS (les données survivent aux redémarrages)
+# ============================================================
+
+volumes:
+  postgres-auth-data:
+    name: microservices-postgres-auth-data
+  postgres-user-data:
+    name: microservices-postgres-user-data
+  postgres-product-data:
+    name: microservices-postgres-product-data
+  postgres-inventory-data:
+    name: microservices-postgres-inventory-data
+  postgres-order-data:
+    name: microservices-postgres-order-data
+  postgres-payment-data:
+    name: microservices-postgres-payment-data
+  postgres-notification-data:
+    name: microservices-postgres-notification-data

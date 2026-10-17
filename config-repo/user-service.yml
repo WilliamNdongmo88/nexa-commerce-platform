@@ -9,7 +9,7 @@ spring:
   # PostgreSQL
   # ============================================
   datasource:
-    url: ${USER_DB_URL:jdbc:postgresql://localhost:5433/user_db}
+    url: ${USER_DB_URL:jdbc:postgresql://localhost:5443/user_db}
     username: ${USER_DB_USER:user_user}
     password: ${USER_DB_PASSWORD:user_pass}
     driver-class-name: org.postgresql.Driver
