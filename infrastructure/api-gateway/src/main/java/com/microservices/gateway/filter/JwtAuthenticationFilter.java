@@ -33,11 +33,13 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
     );
 
     private static final List<String> PUBLIC_GET_PREFIXES = List.of(
-            "/api/v1/products"
+            "/api/v1/products",
+            "/api/v1/inventory"
     );
 
     private static final List<String> ADMIN_ONLY_PREFIXES = List.of(
-            "/api/v1/products"
+            "/api/v1/products",
+            "/api/v1/inventory"
     );
 
     private static final List<String> ADMIN_ONLY_METHODS = List.of(
