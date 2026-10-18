@@ -3,6 +3,7 @@ package com.microservices.order.service.saga;
 import com.microservices.order.client.inventory.InventoryClient;
 import com.microservices.order.entity.Order;
 import com.microservices.order.entity.SagaState;
+import com.microservices.order.event.OrderEventPublisher;
 import com.microservices.order.repository.OrderRepository;
 import com.microservices.order.repository.SagaStateRepository;
 import com.microservices.order.saga.step.SagaStep;
@@ -23,6 +24,7 @@ public class SagaCompensationService {
     private final OrderRepository orderRepository;
     private final SagaStateRepository sagaStateRepository;
     private final InventoryClient inventoryClient;
+    private final OrderEventPublisher orderEventPublisher;
 
     /**
      * Compense la saga : libère le stock et marque la commande CANCELLED.
@@ -50,6 +52,7 @@ public class SagaCompensationService {
         if (order != null) {
             order.setStatus(Order.OrderStatus.CANCELLED);
             orderRepository.saveAndFlush(order);
+            orderEventPublisher.publishOrderCancelled(order, null, "Payment failed");
             log.info("Order {} marked as CANCELLED", orderId);
         } else {
             log.error("Order {} not found during compensation!", orderId);

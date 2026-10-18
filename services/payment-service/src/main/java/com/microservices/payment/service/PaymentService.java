@@ -5,6 +5,7 @@ import com.microservices.payment.dto.request.RefundRequest;
 import com.microservices.payment.dto.response.PaymentResponse;
 import com.microservices.payment.entity.Payment;
 import com.microservices.payment.entity.Refund;
+import com.microservices.payment.event.PaymentEventPublisher;
 import com.microservices.payment.exception.PaymentFailedException;
 import com.microservices.payment.exception.PaymentNotFoundException;
 import com.microservices.payment.mapper.PaymentMapper;
@@ -26,6 +27,7 @@ public class PaymentService {
     private final RefundRepository refundRepository;
     private final PaymentSimulator simulator;
     private final PaymentMapper mapper;
+    private final PaymentEventPublisher eventPublisher;
 
     // ============================================================
     // CHARGE — débiter
@@ -53,6 +55,7 @@ public class PaymentService {
             payment.setStatus(Payment.PaymentStatus.COMPLETED);
             payment.setTransactionId(transactionId);
             paymentRepository.save(payment);
+            eventPublisher.publishCompleted(payment);
             log.info("Payment completed: {} (txn={})", payment.getId(), transactionId);
             return mapper.toResponse(payment);
 
@@ -61,6 +64,7 @@ public class PaymentService {
             payment.setErrorCode(e.getErrorCode());
             payment.setErrorMessage(e.getMessage());
             paymentRepository.save(payment);
+            eventPublisher.publishCompleted(payment);
             log.warn("Payment failed: {} ({})", payment.getId(), e.getErrorCode());
             throw e;
         }

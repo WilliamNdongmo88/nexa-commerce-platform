@@ -24,7 +24,7 @@
         <module>inventory-service</module>
         <module>order-service</module>
         <module>payment-service</module>
-<!--        <module>notification-service</module>-->
+        <module>notification-service</module>
     </modules>
 
 </project>

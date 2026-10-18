@@ -8,6 +8,7 @@ import com.microservices.order.dto.external.ProductDto;
 import com.microservices.order.entity.Order;
 import com.microservices.order.entity.OrderItem;
 import com.microservices.order.entity.SagaState;
+import com.microservices.order.event.OrderEventPublisher;
 import com.microservices.order.exception.SagaFailedException;
 import com.microservices.order.repository.OrderRepository;
 import com.microservices.order.repository.SagaStateRepository;
@@ -34,7 +35,8 @@ public class PlaceOrderSaga {
     private final ProductClient productClient;
     private final InventoryClient inventoryClient;
     private final PaymentClient paymentClient;
-    private final SagaCompensationService compensationService;    // ⭐ NOUVEAU
+    private final SagaCompensationService compensationService;
+    private final OrderEventPublisher orderEventPublisher;
 
     /**
      * Exécute la saga. IMPORTANT : cette méthode N'EST PAS transactionnelle
@@ -94,6 +96,7 @@ public class PlaceOrderSaga {
                 order.addItem(item);
             }
             order = orderRepository.saveAndFlush(order);
+            orderEventPublisher.publishOrderCreated(order, null);
             log.info("Order created: {} ({})", order.getOrderNumber(), order.getId());
 
             // Étape 4 : RESERVE_STOCK
@@ -124,6 +127,7 @@ public class PlaceOrderSaga {
             order.setStatus(Order.OrderStatus.CONFIRMED);
             order = orderRepository.save(order);
             recordStep(order.getId(), SagaStep.CONFIRM_ORDER, SagaStatus.COMPLETED);
+            orderEventPublisher.publishOrderConfirmed(order, null);
 
             log.info("Order confirmed: {}", order.getOrderNumber());
             return order;
