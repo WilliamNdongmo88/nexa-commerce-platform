@@ -32,32 +32,31 @@ public class OrderService {
     private final OrderMapper orderMapper;
     private final ObjectMapper objectMapper;
 
-    @Transactional
     public OrderResponse createOrder(UUID userId, CreateOrderRequest request, String idempotencyKey) {
-        // 1. Idempotency check
+        // 1. Idempotency
         if (idempotencyKey != null && !idempotencyKey.isBlank()) {
             Optional<IdempotencyKey> existing = idempotencyKeyRepository.findById(idempotencyKey);
             if (existing.isPresent()) {
                 try {
                     OrderResponse cached = objectMapper.readValue(
                             existing.get().getResponseBody(), OrderResponse.class);
-                    log.info("Idempotency hit for key {} → returning cached response", idempotencyKey);
+                    log.info("Idempotency hit for key {}", idempotencyKey);
                     return cached;
                 } catch (Exception e) {
-                    log.warn("Failed to deserialize cached response: {}", e.getMessage());
+                    log.warn("Failed to deserialize: {}", e.getMessage());
                 }
             }
         }
 
-        // 2. Exécuter la saga
+        // 2. Exécuter la saga (avec cardNumber)
         List<PlaceOrderSaga.CreateItem> items = request.items().stream()
                 .map(i -> new PlaceOrderSaga.CreateItem(i.productId(), i.quantity()))
                 .toList();
 
-        Order order = placeOrderSaga.execute(userId, items, request.shippingAddress());
+        Order order = placeOrderSaga.execute(userId, items, request.shippingAddress(), request.cardNumber());
         OrderResponse response = orderMapper.toResponse(order);
 
-        // 3. Sauvegarder la réponse pour l'idempotency
+        // 3. Sauvegarder la réponse pour idempotency
         if (idempotencyKey != null && !idempotencyKey.isBlank()) {
             try {
                 IdempotencyKey idem = IdempotencyKey.builder()
@@ -67,7 +66,7 @@ public class OrderService {
                         .build();
                 idempotencyKeyRepository.save(idem);
             } catch (Exception e) {
-                log.warn("Failed to save idempotency key: {}", e.getMessage());
+                log.warn("Failed to save idem key: {}", e.getMessage());
             }
         }
 

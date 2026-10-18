@@ -13,7 +13,10 @@ public record CreateOrderRequest(
 
         @NotBlank(message = "Shipping address is required")
         @Size(max = 1000)
-        String shippingAddress
+        String shippingAddress,
+
+        @Size(max = 30)
+        String cardNumber
 ) {
     public record ItemRequest(
             @NotNull UUID productId,

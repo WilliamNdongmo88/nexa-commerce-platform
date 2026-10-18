@@ -1,0 +1,61 @@
+server:
+  port: 8086
+
+spring:
+  application:
+    name: payment-service
+
+  datasource:
+    url: ${PAYMENT_DB_URL:jdbc:postgresql://localhost:5447/payment_db}
+    username: ${PAYMENT_DB_USER:payment_user}
+    password: ${PAYMENT_DB_PASSWORD:payment_pass}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        jdbc:
+          time_zone: UTC
+    open-in-view: false
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+
+  kafka:
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
+app:
+  payment:
+    # Règle de simulation (voir PaymentSimulator)
+    simulator:
+      max-amount: 10000.00     # au-delà : refus
+      failure-rate: 0.0        # 0.0 = jamais d'échec aléatoire (100% succès par défaut)
+
+  kafka:
+    enabled: ${KAFKA_ENABLED:false}
+    topics:
+      payment-completed: payment.payment.completed
+      payment-failed: payment.payment.failed
+      payment-refunded: payment.payment.refunded
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+logging:
+  level:
+    com.microservices.payment: DEBUG
