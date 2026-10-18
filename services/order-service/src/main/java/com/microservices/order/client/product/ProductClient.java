@@ -3,6 +3,7 @@ package com.microservices.order.client.product;
 import com.microservices.order.dto.external.ProductDto;
 import com.microservices.order.exception.SagaFailedException;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.github.resilience4j.retry.annotation.Retry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -18,6 +19,7 @@ public class ProductClient {
     private final WebClient.Builder webClientBuilder;
 
     @CircuitBreaker(name = "productService", fallbackMethod = "fallbackGetProduct")
+    @Retry(name = "productService")
     public ProductDto getProduct(UUID productId) {
         return webClientBuilder.build()
                 .get()
@@ -29,6 +31,6 @@ public class ProductClient {
 
     public ProductDto fallbackGetProduct(UUID productId, Throwable t) {
         log.error("Product service unavailable for product {}: {}", productId, t.getMessage());
-        throw new SagaFailedException("Product service unavailable");
+        throw new SagaFailedException("Product service unavailable: " + t.getMessage());
     }
 }

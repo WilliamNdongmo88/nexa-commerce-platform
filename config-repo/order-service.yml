@@ -75,3 +75,103 @@ logging:
   level:
     com.microservices.order: DEBUG
     org.springframework.web.reactive.function.client: INFO
+
+# ============================================================
+# RESILIENCE4J
+# ============================================================
+resilience4j:
+
+  # ============================================
+  # CIRCUIT BREAKER
+  # ============================================
+  circuitbreaker:
+    configs:
+      default:
+        registerHealthIndicator: true
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        waitDurationInOpenState: 10s
+        failureRateThreshold: 50
+        eventConsumerBufferSize: 10
+    instances:
+      productService:
+        baseConfig: default
+      inventoryService:
+        baseConfig: default
+        slidingWindowSize: 5
+        minimumNumberOfCalls: 3
+        waitDurationInOpenState: 15s
+      paymentService:
+        baseConfig: default
+      userService:
+        baseConfig: default
+
+  # ============================================
+  # RETRY
+  # ============================================
+  retry:
+    configs:
+      default:
+        maxAttempts: 3
+        waitDuration: 500ms
+        retryExceptions:
+          - org.springframework.web.reactive.function.client.WebClientRequestException
+          - java.io.IOException
+        ignoreExceptions:
+          - com.microservices.order.exception.SagaFailedException
+    instances:
+      productService:
+        baseConfig: default
+      inventoryService:
+        baseConfig: default
+      paymentService:
+        baseConfig: default
+        maxAttempts: 2   # le paiement est critique, moins de retry
+      userService:
+        baseConfig: default
+
+  # ============================================
+  # TIMELIMITER
+  # ============================================
+  timelimiter:
+    configs:
+      default:
+        timeoutDuration: 5s
+        cancelRunningFuture: true
+    instances:
+      productService:
+        baseConfig: default
+      inventoryService:
+        baseConfig: default
+      paymentService:
+        timeoutDuration: 10s
+      userService:
+        baseConfig: default
+
+  # ============================================
+  # BULKHEAD (limite les appels concurrents)
+  # ============================================
+  bulkhead:
+    configs:
+      default:
+        maxConcurrentCalls: 20
+        maxWaitDuration: 100ms
+    instances:
+      inventoryService:
+        maxConcurrentCalls: 10   # critique
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,refresh,circuitbreakers,circuitbreakerevents,retries,retryevents,bulkheads
+  endpoint:
+    health:
+      show-details: always
+  health:
+    circuitbreakers:
+      enabled: true
+    ratelimiters:
+      enabled: true

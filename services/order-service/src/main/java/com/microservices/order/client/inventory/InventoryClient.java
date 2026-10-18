@@ -1,7 +1,9 @@
 package com.microservices.order.client.inventory;
 
 import com.microservices.order.exception.SagaFailedException;
+import io.github.resilience4j.bulkhead.annotation.Bulkhead;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.github.resilience4j.retry.annotation.Retry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -18,6 +20,8 @@ public class InventoryClient {
     private final WebClient.Builder webClientBuilder;
 
     @CircuitBreaker(name = "inventoryService", fallbackMethod = "fallbackReserve")
+    @Retry(name = "inventoryService")
+    @Bulkhead(name = "inventoryService")
     public void reserve(UUID productId, int quantity, UUID orderId) {
         webClientBuilder.build()
                 .post()
@@ -33,6 +37,7 @@ public class InventoryClient {
     }
 
     @CircuitBreaker(name = "inventoryService", fallbackMethod = "fallbackRelease")
+    @Retry(name = "inventoryService")
     public void release(UUID productId, int quantity, UUID orderId) {
         webClientBuilder.build()
                 .post()
@@ -49,7 +54,7 @@ public class InventoryClient {
 
     public void fallbackReserve(UUID productId, int quantity, UUID orderId, Throwable t) {
         log.error("Inventory service unavailable (reserve): {}", t.getMessage());
-        throw new SagaFailedException("Inventory service unavailable");
+        throw new SagaFailedException("Inventory service unavailable: " + t.getMessage());
     }
 
     public void fallbackRelease(UUID productId, int quantity, UUID orderId, Throwable t) {

@@ -2,6 +2,7 @@ package com.microservices.order.client.user;
 
 import com.microservices.order.exception.SagaFailedException;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.github.resilience4j.retry.annotation.Retry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -17,6 +18,7 @@ public class UserClient {
     private final WebClient.Builder webClientBuilder;
 
     @CircuitBreaker(name = "userService", fallbackMethod = "fallbackExists")
+    @Retry(name = "userService")
     public boolean userExists(UUID userId) {
         try {
             webClientBuilder.build()
@@ -33,6 +35,6 @@ public class UserClient {
 
     public boolean fallbackExists(UUID userId, Throwable t) {
         log.error("User service unavailable: {}", t.getMessage());
-        throw new SagaFailedException("User service unavailable");
+        throw new SagaFailedException("User service unavailable: " + t.getMessage());
     }
 }

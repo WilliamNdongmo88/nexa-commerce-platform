@@ -2,6 +2,7 @@ package com.microservices.order.client.payment;
 
 import com.microservices.order.exception.SagaFailedException;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.github.resilience4j.retry.annotation.Retry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -20,6 +21,7 @@ public class PaymentClient {
     private final WebClient.Builder webClientBuilder;
 
     @CircuitBreaker(name = "paymentService", fallbackMethod = "fallbackCharge")
+    @Retry(name = "paymentService")
     public void charge(UUID orderId, UUID userId, BigDecimal amount, String currency, String cardNumber) {
         Map<String, Object> body = new HashMap<>();
         body.put("orderId", orderId);
@@ -29,6 +31,10 @@ public class PaymentClient {
         if (cardNumber != null && !cardNumber.isBlank()) {
             body.put("cardNumber", cardNumber);
         }
+
+        log.info("Calling payment-service: orderId={}, amount={} {}, cardNumber={}",
+                orderId, amount, currency,
+                cardNumber != null ? "****" + cardNumber.substring(Math.max(0, cardNumber.length() - 4)) : "null");
 
         webClientBuilder.build()
                 .post()
