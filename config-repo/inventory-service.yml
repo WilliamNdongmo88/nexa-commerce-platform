@@ -36,12 +36,20 @@ spring:
       group-id: inventory-service-cg
       auto-offset-reset: earliest
       enable-auto-commit: false
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: false
 
 app:
   kafka:
-    enabled: ${KAFKA_ENABLED:false}
+    enabled: ${KAFKA_ENABLED:true}
     topics:
       product-created: product.product.created
+      stock-reserved: inventory.stock.reserved
+      stock-released: inventory.stock.released
+      stock-failed: inventory.stock.failed
 
 springdoc:
   api-docs:

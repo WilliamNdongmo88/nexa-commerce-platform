@@ -4,6 +4,12 @@ server:
 spring:
   application:
     name: auth-service
+  kafka:
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: false
 
   # ============================================
   # PostgreSQL
@@ -67,3 +73,12 @@ logging:
   level:
     com.microservices.auth: DEBUG
     org.springframework.security: INFO
+    org.apache.kafka: WARN
+
+# ============================================
+# kafka
+# ============================================
+app:
+  kafka:
+    topics:
+      user-registered: auth.user.registered

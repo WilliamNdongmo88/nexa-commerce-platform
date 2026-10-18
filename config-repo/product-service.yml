@@ -4,6 +4,14 @@ server:
 spring:
   application:
     name: product-service
+  level:
+    com.microservices.product: DEBUG
+  kafka:
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: false
 
   # ============================================
   # PostgreSQL
@@ -55,3 +63,14 @@ springdoc:
 logging:
   level:
     com.microservices.product: DEBUG
+    org.apache.kafka: WARN
+
+# ============================================
+# kafka
+# ============================================
+app:
+  kafka:
+    enabled: true
+    topics:
+      product-created: product.product.created
+      product-updated: product.product.updated

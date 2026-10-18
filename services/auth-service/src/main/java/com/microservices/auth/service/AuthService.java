@@ -8,6 +8,7 @@ import com.microservices.auth.dto.response.UserResponse;
 import com.microservices.auth.entity.RefreshToken;
 import com.microservices.auth.entity.Role;
 import com.microservices.auth.entity.User;
+import com.microservices.auth.event.AuthEventPublisher;
 import com.microservices.auth.exception.EmailAlreadyExistsException;
 import com.microservices.auth.exception.InvalidCredentialsException;
 import com.microservices.auth.exception.InvalidTokenException;
@@ -39,6 +40,7 @@ public class AuthService {
     private final JwtProperties jwtProperties;
     private final UserMapper userMapper;
     private final RoleRepository roleRepository;
+    private final AuthEventPublisher authEventPublisher;
 
     private static final String DEFAULT_ROLE = "ROLE_CUSTOMER";
 
@@ -69,6 +71,7 @@ public class AuthService {
         //user.getRoles().clear();
 
         User savedUser = userRepository.save(user);
+        authEventPublisher.publishUserRegistered(savedUser);
         log.info("User registered: {}", savedUser.getEmail());
 
         // TODO : publier event Kafka "auth.user.registered" (étape 13)

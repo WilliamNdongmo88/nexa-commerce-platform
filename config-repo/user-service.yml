@@ -54,7 +54,7 @@ spring:
 # ============================================
 app:
   kafka:
-    enabled: ${KAFKA_ENABLED:false}
+    enabled: ${KAFKA_ENABLED:true}
     topics:
       user-registered: auth.user.registered
 

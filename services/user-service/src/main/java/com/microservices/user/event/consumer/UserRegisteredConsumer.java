@@ -4,40 +4,46 @@ import com.microservices.user.event.UserRegisteredEvent;
 import com.microservices.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
 @RequiredArgsConstructor
-@ConditionalOnProperty(
-        name = "app.kafka.enabled",
-        havingValue = "true",
-        matchIfMissing = false    // ← désactivé par défaut tant que Kafka n'est pas là
-)
 public class UserRegisteredConsumer {
 
     private final UserService userService;
 
     @KafkaListener(
             topics = "${app.kafka.topics.user-registered}",
-            groupId = "${spring.kafka.consumer.group-id}"
+            groupId = "${spring.kafka.consumer.group-id}",
+            properties = {
+                    "spring.json.value.default.type=com.microservices.user.event.UserRegisteredEvent",
+                    "spring.json.use.type.headers=false"
+            }
     )
-    public void onUserRegistered(UserRegisteredEvent event) {
-        log.info("Received UserRegisteredEvent: {}", event);
+    public void onUserRegistered(UserRegisteredEvent event, Acknowledgment ack) {
+        try {
+            log.info("Received UserRegisteredEvent: userId={}", event.aggregateId());
 
-        if (event.payload() == null) {
-            log.warn("Empty payload, skipping");
-            return;
+            if (event.payload() == null) {
+                log.warn("Empty payload, skipping");
+                ack.acknowledge();
+                return;
+            }
+
+            UserRegisteredEvent.Payload payload = event.payload();
+            userService.createProfile(
+                    payload.userId(),
+                    payload.email(),
+                    payload.firstName(),
+                    payload.lastName()
+            );
+            ack.acknowledge();
+        } catch (Exception e) {
+            log.error("Failed to process UserRegisteredEvent: {}", e.getMessage(), e);
+            // ne pas ack → retry
         }
-
-        UserRegisteredEvent.Payload payload = event.payload();
-        userService.createProfile(
-                payload.userId(),
-                payload.email(),
-                payload.firstName(),
-                payload.lastName()
-        );
     }
 }

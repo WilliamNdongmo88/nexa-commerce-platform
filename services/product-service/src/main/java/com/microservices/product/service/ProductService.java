@@ -5,6 +5,7 @@ import com.microservices.product.dto.request.UpdateProductRequest;
 import com.microservices.product.dto.response.ProductResponse;
 import com.microservices.product.entity.Category;
 import com.microservices.product.entity.Product;
+import com.microservices.product.event.ProductEventPublisher;
 import com.microservices.product.exception.ProductNotFoundException;
 import com.microservices.product.exception.SkuAlreadyExistsException;
 import com.microservices.product.mapper.ProductMapper;
@@ -27,6 +28,7 @@ public class ProductService {
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
     private final ProductMapper productMapper;
+    private final ProductEventPublisher productEventPublisher;
 
     // ============================================================
     // READ
@@ -99,6 +101,9 @@ public class ProductService {
 
         Product saved = productRepository.save(product);
         log.info("Product created: {} ({})", saved.getSku(), saved.getId());
+
+        productEventPublisher.publishProductCreated(saved, 0);
+
         return productMapper.toResponse(saved);
     }
 

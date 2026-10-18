@@ -6,6 +6,7 @@ import com.microservices.inventory.dto.request.ReserveStockRequest;
 import com.microservices.inventory.dto.response.InventoryResponse;
 import com.microservices.inventory.entity.Inventory;
 import com.microservices.inventory.entity.StockMovement;
+import com.microservices.inventory.event.InventoryEventPublisher;
 import com.microservices.inventory.exception.InsufficientStockException;
 import com.microservices.inventory.exception.InventoryNotFoundException;
 import com.microservices.inventory.mapper.InventoryMapper;
@@ -27,6 +28,7 @@ public class InventoryService {
     private final InventoryRepository inventoryRepository;
     private final StockMovementRepository stockMovementRepository;
     private final InventoryMapper inventoryMapper;
+    private final InventoryEventPublisher eventPublisher;
 
     // ============================================================
     // READ
@@ -93,6 +95,7 @@ public class InventoryService {
         );
 
         log.info("Reserved {} of product {} (orderId={})", request.quantity(), request.productId(), request.orderId());
+        eventPublisher.publishStockReserved(request.productId(), request.quantity(), request.orderId());
         return inventoryMapper.toResponse(saved);
     }
 
@@ -122,6 +125,7 @@ public class InventoryService {
         );
 
         log.info("Released {} of product {} (orderId={})", request.quantity(), request.productId(), request.orderId());
+        eventPublisher.publishStockReleased(request.productId(), request.quantity(), request.orderId());
         return inventoryMapper.toResponse(saved);
     }
 
@@ -151,6 +155,7 @@ public class InventoryService {
                 "Committed after payment", orderId);
 
         log.info("Committed {} of product {} (orderId={})", quantity, productId, orderId);
+        eventPublisher.publishStockReserved(productId, quantity, orderId);
         return inventoryMapper.toResponse(saved);
     }
 

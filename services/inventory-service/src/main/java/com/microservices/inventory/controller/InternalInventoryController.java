@@ -46,10 +46,10 @@ public class InternalInventoryController {
      */
     public record CreateInventoryRequest(UUID productId, String sku, int initialQuantity) {}
 
-    @PostMapping("/create")
-    public InventoryResponse create(@RequestBody CreateInventoryRequest request) {
-        var inv = inventoryService.createInventory(
-                request.productId(), request.sku(), request.initialQuantity());
-        return inventoryService.getByProductId(inv.getProductId());
-    }
+//    @PostMapping("/create")
+//    public InventoryResponse create(@RequestBody CreateInventoryRequest request) {
+//        var inv = inventoryService.createInventory(
+//                request.productId(), request.sku(), request.initialQuantity());
+//        return inventoryService.getByProductId(inv.getProductId());
+//    }
 }
