@@ -89,3 +89,43 @@ logging:
     com.microservices: DEBUG
     org.springframework.web: INFO
     org.hibernate.SQL: DEBUG
+
+  # ============================================================
+  # OBSERVABILITÉ
+  # ============================================================
+  management:
+    endpoints:
+      web:
+        exposure:
+          include: health,info,metrics,prometheus,refresh,circuitbreakers,circuitbreakerevents
+    endpoint:
+      health:
+        show-details: always
+        probes:
+          enabled: true
+    metrics:
+      tags:
+        application: ${spring.application.name}
+      distribution:
+        percentiles-histogram:
+          http:
+            server:
+              requests: true
+        slo:
+          http:
+            server:
+              requests: 100ms,200ms,500ms,1s,2s
+    tracing:
+      sampling:
+        probability: 1.0      # 100% des traces en dev (mettre 0.1 en prod)
+    zipkin:
+      tracing:
+        endpoint: http://localhost:9411/api/v2/spans
+    prometheus:
+      metrics:
+        export:
+          enabled: true
+
+  logging:
+    pattern:
+      level: "%5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}]"

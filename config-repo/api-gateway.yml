@@ -122,18 +122,23 @@ eureka:
 # ============================================
 # Actuator
 # ============================================
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info,metrics,prometheus,gateway,refresh
-  endpoint:
-    health:
-      show-details: always
-  health:
-    # Évite les faux DOWN quand un service est momentanément indisponible
-    discovery:
-      enabled: false
+  management:
+    endpoints:
+      web:
+        exposure:
+          include: health,info,metrics,prometheus,gateway,refresh,circuitbreakers
+    endpoint:
+      health:
+        show-details: always
+    metrics:
+      tags:
+        application: api-gateway
+    tracing:
+      sampling:
+        probability: 1.0
+    zipkin:
+      tracing:
+        endpoint: http://localhost:9411/api/v2/spans
 
 logging:
   level:

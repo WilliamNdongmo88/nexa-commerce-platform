@@ -3,6 +3,8 @@ package com.microservices.gateway.filter;
 import com.microservices.gateway.security.JwtService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
+import io.micrometer.tracing.Tracer;
+import io.micrometer.tracing.propagation.Propagator;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
@@ -23,13 +25,17 @@ import java.util.UUID;
 public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
 
     private final JwtService jwtService;
+    private final Tracer tracer;
+    private final Propagator propagator;
 
+    // Endpoints publics
     private static final List<String> PUBLIC_PATHS = List.of(
             "/api/v1/auth/register",
             "/api/v1/auth/login",
             "/api/v1/auth/refresh",
             "/actuator/health",
-            "/actuator/info"
+            "/actuator/info",
+            "/actuator/prometheus"
     );
 
     private static final List<String> PUBLIC_GET_PREFIXES = List.of(
@@ -46,8 +52,10 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
             "POST", "PUT", "DELETE", "PATCH"
     );
 
-    public JwtAuthenticationFilter(JwtService jwtService) {
+    public JwtAuthenticationFilter(JwtService jwtService, Tracer tracer, Propagator propagator) {
         this.jwtService = jwtService;
+        this.tracer = tracer;
+        this.propagator = propagator;
     }
 
     @Override
@@ -56,25 +64,39 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
         String path = request.getPath().value();
         String method = request.getMethod().name();
 
-        // 1. Endpoints publics → laisser passer
-        if (isPublic(path, method)) {
-            log.debug("Public endpoint, bypass JWT: {} {}", method, path);
-            return chain.filter(exchange);
+        log.info("REQUEST: {} {} | traceId={} | spanId={}",
+                method, path,
+                tracer.currentSpan() != null ? tracer.currentSpan().context().traceId() : "NO_TRACE",
+                tracer.currentSpan() != null ? tracer.currentSpan().context().spanId() : "NO_SPAN");
+
+        // 1. Préparer les headers de tracing
+        HttpHeaders tracingHeaders = new HttpHeaders();
+        tracingHeaders.putAll(request.getHeaders());
+        if (tracer.currentSpan() != null) {
+            propagator.inject(tracer.currentSpan().context(), tracingHeaders, (carrier, key, value) -> carrier.set(key, value));
         }
 
-        // 2. Récupérer le header Authorization
+        // 2. Endpoints publics
+        if (isPublic(path, method)) {
+            log.debug("Public endpoint, bypass JWT: {} {}", method, path);
+            ServerHttpRequest mutated = new ServerHttpRequestDecorator(request) {
+                @Override
+                public HttpHeaders getHeaders() { return tracingHeaders; }
+            };
+            return chain.filter(exchange.mutate().request(mutated).build());
+        }
+
+        // 3. Endpoints protégés
         String authHeader = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            log.warn("Missing or invalid Authorization header on {} {}", method, path);
+            log.warn("Missing or invalid Authorization header on {}", path);
             return unauthorized(exchange, "Missing Bearer token");
         }
 
         String token = authHeader.substring(7);
 
-        // 3. Valider le JWT
         try {
             Claims claims = jwtService.validateAndExtract(token);
-
             if (jwtService.isExpired(claims)) {
                 return unauthorized(exchange, "Token expired");
             }
@@ -82,30 +104,23 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
             List<String> roles = jwtService.extractRoles(claims);
             String userId = jwtService.extractUserId(claims);
 
-            // 4. Vérifier les rôles admin si nécessaire
             if (requiresAdmin(path, method) && !roles.contains("ROLE_ADMIN")) {
-                log.warn("Forbidden: user {} lacks ROLE_ADMIN on {} {}", userId, method, path);
                 return forbidden(exchange, "Insufficient privileges");
             }
 
-            // 5. Injecter les headers via un Decorator (évite ReadOnlyHttpHeaders)
-            String traceId = (String) exchange.getAttributes()
-                    .getOrDefault("traceId", UUID.randomUUID().toString());
+            // 4. Injecter les headers utilisateur ET les headers de tracing
+            String traceId = (String) exchange.getAttributes().getOrDefault("traceId", UUID.randomUUID().toString());
 
             ServerHttpRequest mutatedRequest = new ServerHttpRequestDecorator(request) {
                 @Override
                 public HttpHeaders getHeaders() {
-                    HttpHeaders headers = new HttpHeaders();
-                    headers.putAll(super.getHeaders());
-                    headers.add("X-User-Id", userId);
-                    headers.add("X-User-Email", nullSafe(jwtService.extractEmail(claims)));
-                    headers.add("X-User-Roles", String.join(",", roles));
-                    headers.add("X-Trace-Id", traceId);
-                    return headers;
+                    tracingHeaders.add("X-User-Id", userId);
+                    tracingHeaders.add("X-User-Email", nullSafe(jwtService.extractEmail(claims)));
+                    tracingHeaders.add("X-User-Roles", String.join(",", roles));
+                    tracingHeaders.add("X-Trace-Id", traceId);
+                    return tracingHeaders;
                 }
             };
-
-            log.debug("JWT valid, user={}, roles={}", userId, roles);
 
             return chain.filter(exchange.mutate().request(mutatedRequest).build());
 
@@ -116,18 +131,13 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
     }
 
     private boolean isPublic(String path, String method) {
-        if (PUBLIC_PATHS.stream().anyMatch(path::startsWith)) {
-            return true;
-        }
-        if ("GET".equals(method)) {
-            return PUBLIC_GET_PREFIXES.stream().anyMatch(path::startsWith);
-        }
+        if (PUBLIC_PATHS.stream().anyMatch(path::startsWith)) return true;
+        if ("GET".equals(method)) return PUBLIC_GET_PREFIXES.stream().anyMatch(path::startsWith);
         return false;
     }
 
     private boolean requiresAdmin(String path, String method) {
-        return ADMIN_ONLY_METHODS.contains(method)
-                && ADMIN_ONLY_PREFIXES.stream().anyMatch(path::startsWith);
+        return ADMIN_ONLY_METHODS.contains(method) && ADMIN_ONLY_PREFIXES.stream().anyMatch(path::startsWith);
     }
 
     private String nullSafe(String value) {
